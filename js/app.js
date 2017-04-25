@@ -1,0 +1,324 @@
+// --------------------------------------------------------------------
+//                            Declaring Objects
+// --------------------------------------------------------------------
+
+// ********************************************************************
+//                            Game
+// ********************************************************************
+// in Game we will store our game relevant data like score, and helper classes to control the scoreboard
+
+var Game = function() {
+  this.scorePlayer = 0; // Player score
+  this.scoreAi = 0; // Ai score
+ };
+// write will write messages on a given x and y
+Game.prototype.write = function(message, posX, posY) {
+        ctx.font = '25px "Arial"';
+        ctx.textAlign = 'center';
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 3;
+        ctx.strokeText(message, posX, posY);
+        ctx.fillStyle = "#fff";
+        ctx.fillText(message, posX, posY);        
+    };
+
+// add aiScores will add one point to the ai score
+Game.prototype.aiScores = function() {
+    this.scoreAi++;
+};
+
+// add playerScores() will add one point to the player score
+Game.prototype.playerScores = function() {
+    this.scorePlayer++;
+};
+
+// ********************************************************************
+//                            Entity
+// ********************************************************************
+// Entity will act as a superclass for Ball
+
+var Entity = function(x, y, width, height, color, speedX, speedY) {
+  this.x = x; // X-Position of the Topleft corner
+  this.y = y; // Y-Position of the Topleft corner
+  this.width = width; //width of our Entity
+  this.height = height; //height of our Entity
+  this.color = color; //chosen color for drawing the Entity
+  this.speedX = speedX; // speed in X direction
+  this.speedY = speedY; // speed in Y direction
+};
+
+//Entity.draw() will render a rectangle with given params
+Entity.prototype.draw = function() {
+    ctx.beginPath();
+    ctx.rect(this.x, this.y, this.width, this.height);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    ctx.closePath();
+};
+
+//Entity.move() will move our object with a given x and y speed
+Entity.prototype.move = function() {
+    this.x += this.speedX;
+    this.y += this.speedY;
+};
+// Entity.reset() will reset our object to the given coordinates
+Entity.prototype.reset = function(x, y) {
+    this.x = x;
+    this.y = y;
+};
+
+// ********************************************************************
+//                            Ball
+// ********************************************************************
+// Ball will act as a subclass of Entity
+
+var Ball = function(x, y, width, height, color, speedX, speedY) {
+  Entity.call(this, x, y, width, height, color, speedX, speedY); // this line connects to the properties in the responding superclass
+};
+
+Ball.prototype = Object.create(Entity.prototype); // Let's connect to the prototype of the superclass
+Ball.prototype.constructor = Ball;
+
+// Ball.edge() will monitor if our ball reaches the borders of the gameboard
+Ball.prototype.edge = function(canvas) {
+    // watch the upper edge
+    if(this.y + this.speedY <= 0 ) {
+        this.speedY *= -1;
+    }
+    // watch the bottom edge
+    if(this.y + this.height + this.speedY >= canvas.height) {
+        this.speedY *= -1;
+    }
+    // watch the left edge
+    if (this.x + this.speedX <= 0) {
+        this.reset((canvas.width / 2) - (this.width / 2), (canvas.height / 2) - (this.height / 2)); // reset the ball to the kickoff point
+        game.aiScores();
+    }
+    // watch the right side
+    if (this.x + this.width + this.speedX >= canvas.width) {
+        this.reset((canvas.width / 2) - (this.width / 2), (canvas.height / 2) - (this.height / 2)); // reset the ball to the kickoff point
+        game.playerScores();
+    }
+};
+
+// ********************************************************************
+//                            Paddle
+// ********************************************************************
+// Paddle is a subclass of Enitity
+// Paddle is a superclass for PlayerPaddle and AiPaddle
+
+var Paddle = function(x, y, width, height, color, speedX, speedY) {
+  Entity.call(this, x, y, width, height, color, speedX, speedY); // this line connects to the properties in the responding superclass
+};
+
+Paddle.prototype = Object.create(Entity.prototype); // Let's connect to the prototype of the superclass
+Paddle.prototype.constructor = Paddle;
+
+// ********************************************************************
+//                            PlayerPaddle
+// ********************************************************************
+// PlayerPaddle is a subclass of Paddle
+
+var PlayerPaddle = function(x, y, width, height, color, speedX, speedY) {
+  Paddle.call(this, x, y, width, height, color, speedX, speedY); // this line connects to the properties in the responding superclass
+};
+
+PlayerPaddle.prototype = Object.create(Paddle.prototype); // Let's connect to the prototype of the superclass
+PlayerPaddle.prototype.constructor = PlayerPaddle;
+
+// PlayerPaddle.handleControl() will update the ball's speed acording to keyboard input
+PlayerPaddle.prototype.handleControl = function() {
+    // move the PlayerPaddle upwards but not out of the canvas
+    if(keyState[0] && this.y > Math.abs(this.speedY)){
+        if(this.speedY > 0) {
+            this.speedY *= -1;
+        }
+        this.move();
+    }
+     if(keyState[1] && this.y + this.height + Math.abs(this.speedY) < 500){
+        if(this.speedY < 0) {
+            this.speedY *= -1;
+        }
+        this.move();
+    }
+};
+
+// ********************************************************************
+//                            AiPaddle
+// ********************************************************************
+// AiPaddle is a subclass of Paddle
+
+var AiPaddle = function(x, y, width, height, color, speedX, speedY) {
+  Paddle.call(this, x, y, width, height, color, speedX, speedY); // this line connects to the properties in the responding superclass
+};
+
+AiPaddle.prototype = Object.create(Paddle.prototype); // Let's connect to the prototype of the superclass
+AiPaddle.prototype.constructor = AiPaddle;
+
+// AiPaddle.ai() will control the movement of the AiPaddle
+AiPaddle.prototype.ai = function(canvas) {
+    // first we check if the ball is in the half of the aiPaddle and moving towards the ai
+    if (ball.x > canvas.width / 2 && ball.speedX > 0) {
+        // Now we try to bring the center of the aiPaddle in height of the incoming ball
+        if((this.y + this.height*0.5) < ball.y) {
+            if(this.y + this.height + Math.abs(this.speedY) < canvas.height){
+                this.speedY = Math.abs(this.speedY);
+                this.move();
+            }
+        }
+        else {
+            if(this.y > Math.abs(this.speedY)){
+                this.speedY = Math.abs(this.speedY)*-1;
+                this.move();
+            }
+        }
+    }
+    else {
+    // we move the ball to the center of his side
+        if(this.y + this.height * 0.5 < canvas.height * 0.5 - (this.speedY + 1)) {
+            this.speedY = Math.abs(this.speedY);
+            this.move();
+        }
+        else if(this.y + this.height * 0.5 > canvas.height * 0.5 + (this.speedY + 1)) {
+            this.speedY = Math.abs(this.speedY)*-1;
+            this.move(); 
+        }
+    }
+};
+
+// --------------------------------------------------------------------
+//                            Instantiation
+// --------------------------------------------------------------------
+// Now it's time to instantiate our new objects
+// Create a new Game
+var game = new Game();
+// Create a ball
+var ball = new Ball(395, 245, 10, 10, "#fff", -3, -4);
+// Create a playerPaddle
+var playerPaddle = new PlayerPaddle(10, 200, 10, 100, "#fff", 0, -3);
+// Create an AiPaddle
+var aiPaddle = new AiPaddle(780, 200, 10, 100, "#fff", 0, -3.2);
+
+
+// --------------------------------------------------------------------
+//                            Keyboard Input
+// --------------------------------------------------------------------
+// The following code will listen for keyboard input
+// The information is used to move the PlayerPaddle up and down
+// To keep things clean and tidy I wrapped the keyboard Input code into an IIFE
+// only the keyState[] will be handed back to the gobal object
+// I can easily reuse this code in other games.
+// ToDo: Add Escape, Shift, Alt, Tab, Enter, Spacebar to the library
+// ToDo: Add 0-9 to the library
+
+(function(global){
+
+// Pressed buttons can be defined and initialized with boolean variables, like so.
+// We will store all keyevents in an array called keyState.
+var keyState = [false,  // keyState[0] will monitor ASCII Keycode 38 (Up Arrow)
+                false,  // keyState[1] will monitor ASCII Keycode 40 (Down Arrow)
+                false,  // keyState[2] will monitor ASCII Keycode 37 (Left Arrow)
+                false,  // keyState[3] will monitor ASCII Keycode 39 (Right Arrow)
+                false,  // keyState[4] will monitor ASCII Keycode 87 (W)
+                false,  // keyState[5] will monitor ASCII Keycode 83 (A)
+                false,  // keyState[6] will monitor ASCII Keycode 65 (S)
+                false,  // keyState[7] will monitor ASCII Keycode 68 (D)
+                false,  // keyState[8] will monitor ASCII Keycode 80 (P)
+               ];
+
+// The default value for both is false because at the beginning the control buttons are not pressed. 
+// To listen for key presses, we will set up two event listeners.
+document.addEventListener("keydown", keyDownHandler, false);
+document.addEventListener("keyup", keyUpHandler, false);
+
+// When the keydown event is fired on any of the keys on your keyboard (when they are pressed), the keyDownHandler() function will be executed. 
+// The same pattern is true for the second listener: keyup events will fire the keyUpHandler() function (when the keys stop being pressed).
+// Let's take a closer look at keyDownHandler and keyUpHandler.
+
+function keyDownHandler(e) {
+    if(e.keyCode == 38) { // 38 is the ASCII Keycode for the Up Arrow
+        keyState[0] = true;
+    }
+    else if(e.keyCode == 40) { // 40 is the ASCII Keycode for the Down Arrow
+        keyState[1] = true;
+    }
+    else if(e.keyCode == 37) { // 37 is the ASCII Keycode for the Left Arrow
+        keyState[2] = true;
+    }
+    else if(e.keyCode == 39) { // 39 is the ASCII Keycode for the Right Arrow
+        keyState[3] = true;
+    }
+    else if(e.keyCode == 87) { // 87 is the ASCII Keycode for "W"
+        keyState[4] = true;
+    }
+    else if(e.keyCode == 83) { // 83 is the ASCII Keycode for "A"
+        keyState[5] = true;
+    }
+    else if(e.keyCode == 65) { // 65 is the ASCII Keycode for "S"
+        keyState[6] = true;
+    }
+    else if(e.keyCode == 68) { // 68 is the ASCII Keycode for "D"
+        keyState[7] = true;
+    }
+    else if(e.keyCode == 80) { // 80 is the ASCII Keycode for "P"
+        keyState[8] = true;
+    }
+}
+
+function keyUpHandler(e) {
+    if(e.keyCode == 38) { // 38 is the ASCII Keycode for the Up Arrow
+        keyState[0] = false;
+    }
+    else if(e.keyCode == 40) { // 40 is the ASCII Keycode for the Down Arrow
+        keyState[1] = false;
+    }
+    else if(e.keyCode == 37) { // 37 is the ASCII Keycode for the Left Arrow
+        keyState[2] = false;
+    }
+    else if(e.keyCode == 39) { // 39 is the ASCII Keycode for the Right Arrow
+        keyState[3] = false;
+    }
+    else if(e.keyCode == 87) { // 87 is the ASCII Keycode for "W"
+        keyState[4] = false;
+    }
+    else if(e.keyCode == 83) { // 83 is the ASCII Keycode for "A"
+        keyState[5] = false;
+    }
+    else if(e.keyCode == 65) { // 65 is the ASCII Keycode for "S"
+        keyState[6] = false;
+    }
+    else if(e.keyCode == 68) { // 68 is the ASCII Keycode for "D"
+        keyState[7] = false;
+    }
+    else if(e.keyCode == 80) { // 80 is the ASCII Keycode for "P"
+        keyState[8] = false;
+    }
+}  
+    
+// Assign the keystate array to the global variable (the window object when run in a browser) so that developers can use it more easily from within their app.js files.
+global.keyState = keyState;
+    
+}(this));
+
+// --------------------------------------------------------------------
+//                            Collision Detection
+// --------------------------------------------------------------------
+// I will define an object collide{}, filled with different methods for collision detection
+// this object will be a starting point for a small reusable library on collision detection
+// ToDo: circle on circle collision
+// ToDo: point on circle collision
+// ToDo: point on box collision
+// ToDo: line intersections
+
+var collide = {
+    // The boxonbox() follows the AABB model as described on https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection
+    // The algorithm works by ensuring there is no gap between any of the 4 sides of the rectangles. Any gap means a collision does not exist.
+    boxonbox: function(box1, box2) {
+    return (box1.x < box2.x + box2.width &&
+    box1.x + box1.width > box2.x &&
+    box1.y < box2.y + box2.height &&
+    box1.height + box1.y > box2.y);
+    }
+};
+
+
